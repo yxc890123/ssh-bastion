@@ -1,31 +1,11 @@
-import socket, threading, multiprocessing
+import socket, threading
 import re
 import os, pwd
 import time, random
 import paramiko, subprocess, pty, pam
 import struct, fcntl, termios
-import signal
 import ctypes
-
-libc_path = ctypes.util.find_library('c')
-if libc_path:
-    libc = ctypes.CDLL(libc_path)
-else:
-    print('[W] OS c library not found, really?')
-    libc = None
-
-# TODO: load config from file
-LOGIN_RETRY = 3
-LOGIN_TIMEOUT = 60.0
-
-SSH_PORT = 3000
-
-RSA_KEY = '/etc/ssh/ssh_host_rsa_key'
-SFTP_CMD = '/usr/libexec/openssh/sftp-server'
-
-CGROUP_NAME = 'ssh-proxy'
-
-MAX_SESSIONS = 10
+import config
 
 
 class SSHServer(paramiko.ServerInterface):
@@ -108,7 +88,7 @@ class SSHServer(paramiko.ServerInterface):
 
     def auth_password(self, mode):
         def __fail():
-            if self.retry >= LOGIN_RETRY:
+            if self.retry >= config.LOGIN_RETRY:
                 print('[D] auth_password retry limit reached.')
                 self.protocal.lock.acquire()
                 try:
@@ -384,7 +364,7 @@ def set_cgroup(pid):
                     if _subsys == 'devices':
                         _cgroup_paths.append((f'{_base_dir}/{_cgroup_path}', _pid_file))
                     else:
-                        _cgroup_paths.append((f'{_base_dir}/{_cgroup_path}/{CGROUP_NAME}/{pid}', _pid_file))
+                        _cgroup_paths.append((f'{_base_dir}/{_cgroup_path}/{config.CGROUP_NAME}/{pid}', _pid_file))
                     break
 
     for _cgroup_dir, _pid_file in _cgroup_paths:
@@ -398,29 +378,29 @@ def set_cgroup(pid):
 
 def set_cmdline(name):
     # make ps command result fancy
-    if libc:
-        # set /proc/self/cmdline
-        try:
-            _cmdline_p = ctypes.c_char_p.in_dll(libc, '__progname_full')
-            _cmdline_f = open('/proc/self/cmdline', 'rb').read1()
-        except Exception as e:
-            print('[W] Failed to get process cmdline:', e)
+    _libc = ctypes.CDLL(ctypes.util.find_library('c'))
+    # set /proc/self/cmdline
+    try:
+        _cmdline_p = ctypes.c_char_p.in_dll(_libc, '__progname_full')
+        _cmdline_f = open('/proc/self/cmdline', 'rb').read1()
+    except Exception as e:
+        print('[W] Failed to get process cmdline:', e)
 
-        try:
-            # strcpy: copy arg1 to arg0, returns a pointer of arg0
-            # only do this without padding will leave long cmdline uncut
-            # and strcpy can't pad \0
-            _rt = libc.strcpy(_cmdline_p, name.encode() + b' ' * (len(_cmdline_f) - len(name)))
-            if _rt == 0:
-                print('[W] Failed to set cmdline:', _rt)
-                return
-            # only do this will cause weird result like put environ strings into cmdline, overflow?
-            _rt = libc.strncpy(_cmdline_p, name.encode(), max(len(_cmdline_f), len(name)))
-            if _rt == 0:
-                print('[W] Failed to set cmdline:', _rt)
-                return
-        except Exception as e:
-            print('[W] Failed to set cmdline:', e)
+    try:
+        # strcpy: copy arg1 to arg0, returns a pointer of arg0
+        # only do this without padding will leave long cmdline uncut
+        # and strcpy can't pad \0
+        _rt = _libc.strcpy(_cmdline_p, name.encode() + b' ' * (len(_cmdline_f) - len(name)))
+        if _rt == 0:
+            print('[W] Failed to set cmdline:', _rt)
+            return
+        # only do this will cause weird result like put environ strings into cmdline, overflow?
+        _rt = _libc.strncpy(_cmdline_p, name.encode(), max(len(_cmdline_f), len(name)))
+        if _rt == 0:
+            print('[W] Failed to set cmdline:', _rt)
+            return
+    except Exception as e:
+        print('[W] Failed to set cmdline:', e)
 
 
 def handle_connection(conn: socket.socket, addr):
@@ -428,7 +408,7 @@ def handle_connection(conn: socket.socket, addr):
     set_cmdline(f'ssh-proxy [session]: {addr[0]}:{addr[1]}')
     protocol = paramiko.Transport(conn)
     try:
-        protocol.add_server_key(paramiko.RSAKey(filename=RSA_KEY))
+        protocol.add_server_key(paramiko.RSAKey(filename=config.RSA_KEY))
     except Exception:
         _selfKey = f'{os.path.dirname(__file__)}/ssh_host_rsa_key'
         try:
@@ -441,7 +421,7 @@ def handle_connection(conn: socket.socket, addr):
                 _newKey.write_private_key_file(_selfKey)
             except Exception:
                 print('[W] Could not write host key, it will change every time.')
-    if os.access(SFTP_CMD, os.X_OK):
+    if os.access(config.SFTP_CMD, os.X_OK):
         protocol.set_subsystem_handler('sftp', SFTPSubsys)
 
     _server = SSHServer(protocol)
@@ -456,7 +436,7 @@ def handle_connection(conn: socket.socket, addr):
         return
 
     print('[I] Waiting for login...')
-    channel = protocol.accept(LOGIN_TIMEOUT)
+    channel = protocol.accept(config.LOGIN_TIMEOUT)
     if not channel:
         print('[I] Login aborted')
         # sock already closed
@@ -588,53 +568,3 @@ def handle_connection(conn: socket.socket, addr):
 
     protocol.close()
     print('[I] Connection closed:', addr)
-
-
-def collect_child(ps):
-    print('[D] Child pid:', ps.pid)
-    ps.join()
-    print('[D] Child done:', ps.pid)
-
-
-if __name__ == '__main__':
-    signal.signal(signal.SIGINT, signal.SIG_DFL)
-    signal.signal(signal.SIGTSTP, signal.SIG_IGN)
-
-    if os.getuid() != 0:
-        print('[E] Must run as root.')
-        exit(1)
-
-    try:
-        _sock = socket.create_server(('', SSH_PORT), family=socket.AF_INET6, backlog=128, reuse_port=True, dualstack_ipv6=True)
-    except Exception as e:
-        print('[E] Socket creation failed:', e)
-        exit(1)
-    _sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
-    _sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 30)
-    _sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 10)
-    _sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 3)
-
-    if libc:
-        # set /proc/self/comm, once
-        try:
-            _rt = libc.prctl(15, b'ssh-proxy', 0, 0, 0)
-            if _rt != 0:
-                print('[W] Failed to set process name:', _rt)
-        except Exception as e:
-            print('[W] Failed to set process name:', e)
-
-    set_cmdline(f'ssh-proxy [listener]: {_sock.getsockname()[0]}:{SSH_PORT}')
-
-    while True:
-        conn, addr = _sock.accept()
-        _sessions = len(multiprocessing.active_children())
-        print('[D] Active sessions:', _sessions)
-        if _sessions >= MAX_SESSIONS:
-            conn.shutdown(socket.SHUT_RDWR)
-            conn.close()
-            print('[W] Too many sessions, rejecting:', addr)
-            continue
-        print('[I] Connection accepted:', addr)
-        _child = multiprocessing.Process(target=handle_connection, args=(conn, addr))
-        _child.start()
-        threading.Thread(target=collect_child, args=(_child,)).start()
