@@ -5,7 +5,10 @@ import time, random
 import paramiko, subprocess, pty, pam
 import struct, fcntl, termios
 import ctypes
+
 import config
+
+Config = config.Config()
 
 
 class SSHServer(paramiko.ServerInterface):
@@ -88,7 +91,7 @@ class SSHServer(paramiko.ServerInterface):
 
     def auth_password(self, mode):
         def __fail():
-            if self.retry >= config.LOGIN_RETRY:
+            if self.retry >= Config.LOGIN_RETRY:
                 print('[D] auth_password retry limit reached.')
                 self.protocal.lock.acquire()
                 try:
@@ -364,7 +367,7 @@ def set_cgroup(pid):
                     if _subsys == 'devices':
                         _cgroup_paths.append((f'{_base_dir}/{_cgroup_path}', _pid_file))
                     else:
-                        _cgroup_paths.append((f'{_base_dir}/{_cgroup_path}/{config.CGROUP_NAME}/{pid}', _pid_file))
+                        _cgroup_paths.append((f'{_base_dir}/{_cgroup_path}/ssh-proxy/{pid}', _pid_file))
                     break
 
     for _cgroup_dir, _pid_file in _cgroup_paths:
@@ -408,9 +411,9 @@ def handle_connection(conn: socket.socket, addr):
     set_cmdline(f'ssh-proxy [session]: {addr[0]}:{addr[1]}')
     protocol = paramiko.Transport(conn)
     try:
-        protocol.add_server_key(paramiko.RSAKey(filename=config.RSA_KEY))
+        protocol.add_server_key(paramiko.RSAKey(filename=f'/etc/ssh/{Config.RSA_KEY}'))
     except Exception:
-        _selfKey = f'{os.path.dirname(__file__)}/ssh_host_rsa_key'
+        _selfKey = f'{os.path.dirname(__file__)}/{Config.RSA_KEY}'
         try:
             protocol.add_server_key(paramiko.RSAKey(filename=_selfKey))
         except Exception:
@@ -421,7 +424,7 @@ def handle_connection(conn: socket.socket, addr):
                 _newKey.write_private_key_file(_selfKey)
             except Exception:
                 print('[W] Could not write host key, it will change every time.')
-    if os.access(config.SFTP_CMD, os.X_OK):
+    if os.access(Config.SFTP_CMD, os.X_OK):
         protocol.set_subsystem_handler('sftp', SFTPSubsys)
 
     _server = SSHServer(protocol)
@@ -436,7 +439,7 @@ def handle_connection(conn: socket.socket, addr):
         return
 
     print('[I] Waiting for login...')
-    channel = protocol.accept(config.LOGIN_TIMEOUT)
+    channel = protocol.accept(Config.LOGIN_TIMEOUT)
     if not channel:
         print('[I] Login aborted')
         # sock already closed

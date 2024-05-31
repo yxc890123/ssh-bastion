@@ -54,8 +54,8 @@ the logging function could help.
 ## Still working on😴
 
 1. Make command line tool.
-   1. Start the server.
-   2. Generate systemd unit file.
+   1. ~~Start the server.~~
+   2. ~~Set/unset systemd unit file. (Including reload)~~
    3. Generate default config file.
    4. Show parsed configuration.
 2. PyPI packaglize.
