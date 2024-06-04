@@ -1,6 +1,7 @@
 import os
 
-conf_file = f'{os.path.dirname(__file__)}/ssh-proxy.conf'
+COMMON_NAME = 'ssh-bastion'
+CONF_FILE = f'{os.path.dirname(__file__)}/{COMMON_NAME}.conf'
 
 
 class Config(object):
@@ -26,9 +27,9 @@ class Config(object):
 
     def load(self, path):
         if path is None:
-            if os.access(conf_file, os.R_OK):
-                print('[I] Loading config:', conf_file)
-                open(conf_file)
+            if os.access(CONF_FILE, os.R_OK):
+                print('[I] Loading config:', CONF_FILE)
+                open(CONF_FILE)
         else:
             self.PATH = path
             try:
@@ -44,9 +45,9 @@ class Config(object):
 
     def reload(self, *_):
         if self.PATH is None:
-            if os.access(conf_file, os.R_OK):
-                print('[I] Reloading config:', conf_file)
-                open(conf_file)
+            if os.access(CONF_FILE, os.R_OK):
+                print('[I] Reloading config:', CONF_FILE)
+                open(CONF_FILE)
             else:
                 print('[I] No config file specified, nothing happened.')
         else:

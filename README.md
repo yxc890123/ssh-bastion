@@ -1,4 +1,6 @@
-# ssh-proxy
+# ssh-bastion
+
+SSH proxy server.
 
 Transport ssh connection to other servers.
 
@@ -58,12 +60,24 @@ the logging function could help.
    2. ~~Set/unset systemd unit file. (Including reload)~~
    3. Generate default config file.
    4. Show parsed configuration.
-2. PyPI packaglize.
+2. ~~PyPI packaglize.~~
 3. Private key authentication.
 4. Logging.
    1. System log
+      1. DEBUG
+      2. INFO
+      3. WARNING
+      4. ERROR
+      5. CRITICAL
+      6. OFF
    2. Access log
+      1. DUMP (file)
+      2. INFO
+      3. OFF
    3. File (transfer) log
+      1. DUMP (file)
+      2. INFO
+      3. OFF
 5. Configuration file. (Including accesss control)
 
 ## Vulnerabilities😴

@@ -5,16 +5,17 @@ import ctypes
 import sys
 from getopt import getopt
 
-from core import set_cmdline, handle_connection
-import config
+from .core import handle_connection
+from .config import COMMON_NAME, CONF_FILE, Config
+from .misc import set_cmdline
 
-Config = config.Config()
+Config = Config()
 
 script_file = os.path.basename(__file__)
-unit_file = '/usr/local/lib/systemd/system/ssh-proxy.service'
-help_text = f'''ssh-proxy
+unit_file = f'/usr/local/lib/systemd/system/{COMMON_NAME}.service'
+help_text = f'''{COMMON_NAME}
 
-Transport ssh connection to other servers.
+SSH proxy server.
 Version: 0.0
 
 Usage:
@@ -36,9 +37,10 @@ Options:
                             Not implemented yet.
 
     -c, --config-file FILE  Specify the path of config file,
-                            default is {config.conf_file}.
+                            default is {CONF_FILE}.
                             Not implemented yet.
 '''
+_conf_file = None
 
 
 def usage():
@@ -65,13 +67,13 @@ def start_server():
     _libc = ctypes.CDLL(ctypes.util.find_library('c'))
     # set /proc/self/comm, once
     try:
-        _rt = _libc.prctl(15, b'ssh-proxy', 0, 0, 0)
+        _rt = _libc.prctl(15, COMMON_NAME.encode(), 0, 0, 0)
         if _rt != 0:
             print('[W] Failed to set process name:', _rt)
     except Exception as e:
         print('[W] Failed to set process name:', e)
 
-    set_cmdline(f'ssh-proxy [listener]: {_sockname[0]}:{_sockname[1]}')
+    set_cmdline(f'{COMMON_NAME} [listener]: {_sockname[0]}:{_sockname[1]}')
 
     while True:
         conn, addr = _sock.accept()
@@ -95,7 +97,7 @@ After=network.target
 
 [Service]
 Environment=PYTHONUNBUFFERED=1
-ExecStart={sys.executable} {__file__} -s{f' -c {conf_file}' if conf_file else ''}
+ExecStart={sys.executable} {__file__} -s{f' -c {_conf_file}' if _conf_file else ''}
 ExecReload=/bin/kill -HUP $MAINPID
 
 [Install]
@@ -143,8 +145,6 @@ def main():
     signal.signal(signal.SIGINT, signal.SIG_DFL)
     signal.signal(signal.SIGTSTP, signal.SIG_IGN)
 
-    global conf_file
-
     try:
         (opts, args) = getopt(
             sys.argv[1:],
@@ -174,6 +174,7 @@ def main():
         exit(1)
 
     action = None
+    global _conf_file
     for opt in opts:
         if opt[0] in ('-s', '--start'):
             if not action:
@@ -191,17 +192,15 @@ def main():
             if not action:
                 action = parse_conf
         elif opt[0] in ('-c', '--config-file'):
-            conf_file = opt[1]
+            _conf_file = opt[1]
         elif opt[0] in ('-h', '--help'):
             action = usage
 
-    Config.load(conf_file)
+    Config.load(_conf_file)
     result = action()
     if result is not None:
         exit(1)
 
-
-conf_file = None
 
 if __name__ == '__main__':
     main()

@@ -1,2 +1,6 @@
-__pycache__
-ssh_host_rsa_key
+dist/
+*.egg-info/
+ssh_bastion/__pycache__
+ssh_bastion/ssh_host_rsa_key
+ssh_bastion/*.conf
+ignore*
