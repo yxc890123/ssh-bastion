@@ -1,17 +1,25 @@
-import signal, os
+#!/usr/bin/env python3
+
+import sys, os
+import inspect
+import signal
 import socket
 import multiprocessing, threading
 import ctypes
-import sys
 from getopt import getopt
 
-from .core import handle_connection
-from .config import COMMON_NAME, CONF_FILE, Config
-from .misc import set_cmdline
+# from core: raise "No module named 'core'" if run from package entrypoint
+# from .core: raise "attempted relative import with no known parent package" if run from cli.py
+# from ssh_bastion.core: raise "No module named 'ssh_bastion'" if run from cli.py without installing package
+# so, do this:
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from ssh_bastion.core import handle_connection
+from ssh_bastion.config import COMMON_NAME, CONF_FILE, Config
+from ssh_bastion.misc import set_cmdline
 
 Config = Config()
 
-script_file = os.path.basename(__file__)
+entry_file = inspect.stack()[-1].filename
 unit_file = f'/usr/local/lib/systemd/system/{COMMON_NAME}.service'
 help_text = f'''{COMMON_NAME}
 
@@ -19,26 +27,26 @@ SSH proxy server.
 Version: 0.0
 
 Usage:
-    {script_file} -s [-c FILE]
-    {script_file} -i [-c FILE]
-    {script_file} -g [-c FILE]
-    {script_file} -p [-c FILE]
+    {entry_file} -s [-c FILE]
+    {entry_file} -i [-c FILE]
+    {entry_file} -g [-c FILE]
+    {entry_file} -p [-c FILE]
 
 Options:
     -h, --help              Show this message.
 
     -s, --start             Start server.
     -i, --install-unit      Set/reset systemd unit.
-                            At {unit_file}
+                            Located at {unit_file}.
     -u, --uninstall-unit    Unset systemd unit.
-    -g, --generate-config   Generate config file with default setting.
-                            Not implemented yet.
-    -p, --parse-config      Show parsed setting.
-                            Not implemented yet.
+    -g, --generate-config   Generate config file with default settings.
+                            (Not implemented yet.)
+    -p, --parse-config      Show parsed settings.
+                            (Not implemented yet.)
 
-    -c, --config-file FILE  Specify the path of config file,
-                            default is {CONF_FILE}.
-                            Not implemented yet.
+    -c, --config-file FILE  Specify the path of config FILE along with options above.
+                            Default is {CONF_FILE}.
+                            (Not implemented yet.)
 '''
 _conf_file = None
 
@@ -97,7 +105,7 @@ After=network.target
 
 [Service]
 Environment=PYTHONUNBUFFERED=1
-ExecStart={sys.executable} {__file__} -s{f' -c {_conf_file}' if _conf_file else ''}
+ExecStart={sys.executable} {entry_file} -s{f' -c {_conf_file}' if _conf_file else ''}
 ExecReload=/bin/kill -HUP $MAINPID
 
 [Install]
@@ -195,6 +203,11 @@ def main():
             _conf_file = opt[1]
         elif opt[0] in ('-h', '--help'):
             action = usage
+
+    if not action:
+        print('[E] Invalid arguments.', end='\n\n')
+        usage()
+        exit(1)
 
     Config.load(_conf_file)
     result = action()

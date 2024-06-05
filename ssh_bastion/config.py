@@ -1,7 +1,7 @@
 import os
 
 COMMON_NAME = 'ssh-bastion'
-CONF_FILE = f'{os.path.dirname(__file__)}/{COMMON_NAME}.conf'
+CONF_FILE = f'{os.path.dirname(os.path.abspath(__file__))}/{COMMON_NAME}.conf'
 
 
 class Config(object):

@@ -341,7 +341,7 @@ def handle_connection(conn: socket.socket, addr):
     try:
         protocol.add_server_key(paramiko.RSAKey(filename=f'/etc/ssh/{Config.RSA_KEY}'))
     except Exception:
-        _selfKey = f'{os.path.dirname(__file__)}/{Config.RSA_KEY}'
+        _selfKey = f'{os.path.dirname(os.path.abspath(__file__))}/{Config.RSA_KEY}'
         try:
             protocol.add_server_key(paramiko.RSAKey(filename=_selfKey))
         except Exception:

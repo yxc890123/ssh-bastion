@@ -27,9 +27,9 @@ the logging function could help.
 ## Requirements
 
 - Python: 3.6+
-  - paramiko
-  - pam
-  - six
+  - [paramiko](https://pypi.org/project/paramiko/)
+  - [python-pam](https://pypi.org/project/python-pam/)
+  - [six](https://pypi.org/project/six/) (Needed by python-pam)
 - OS: Linux
   - PAM module
   - Shell
@@ -37,6 +37,18 @@ the logging function could help.
   - OpenSSH-server (for sftp)
 
 ## How to use it
+
+### Installation
+
+```bash
+pip install ssh-bastion
+```
+
+### Operation
+
+```bash
+ssh-bastion -h
+```
 
 ### Login
 

@@ -6,7 +6,7 @@ if sys.platform != 'linux':
 
 setup(
     name='ssh_bastion',
-    version='0.0.1',
+    version='0.0.3',
     description='SSH proxy server.',
     long_description=open('./README.md').read(),
     long_description_content_type='text/markdown',
@@ -21,7 +21,11 @@ setup(
     license='Apache 2.0',
     include_package_data=True,
     python_requires='>=3.6',
-    install_requires=['paramiko', 'pam', 'six'],
+    install_requires=[
+        'paramiko',
+        'python-pam',
+        'six'
+    ],
     entry_points={
         'console_scripts': ['ssh-bastion = ssh_bastion.cli:main']
     }
