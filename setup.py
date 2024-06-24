@@ -5,8 +5,8 @@ if sys.platform != 'linux':
     raise OSError('This package can only be installed on Linux system.')
 
 setup(
-    name='ssh_bastion',
-    version='0.0.3',
+    name='ssh-bastion',
+    version='0.1.3',
     description='SSH proxy server.',
     long_description=open('./README.md').read(),
     long_description_content_type='text/markdown',

@@ -29,28 +29,34 @@ the logging function could help.
 - Python: 3.6+
   - [paramiko](https://pypi.org/project/paramiko/)
   - [python-pam](https://pypi.org/project/python-pam/)
-  - [six](https://pypi.org/project/six/) (Needed by python-pam)
+  - [six](https://pypi.org/project/six/) (Needed by python-pam😟)
 - OS: Linux
   - PAM module
   - Shell
   - OpenSSH-client (for scp)
   - OpenSSH-server (for sftp)
 
-## How to use it
-
-### Installation
+## Installation
 
 ```bash
 pip install ssh-bastion
 ```
 
-### Operation
+## Usage
+
+To start the server:
+
+```bash
+ssh-bastion -s
+```
+
+For more information:
 
 ```bash
 ssh-bastion -h
 ```
 
-### Login
+Login
 
 1. As a normal ssh server, you know how to use it.
 2. As a proxy server:
@@ -95,3 +101,7 @@ ssh-bastion -h
 ## Vulnerabilities😴
 
 Not yet, will check after all features are done.
+
+## Disclaimer
+
+Use at your own risk.

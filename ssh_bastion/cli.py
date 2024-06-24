@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
-
 import sys, os
-import inspect
 import signal
 import socket
 import multiprocessing, threading
@@ -19,18 +17,18 @@ from ssh_bastion.misc import set_cmdline
 
 Config = Config()
 
-entry_file = inspect.stack()[-1].filename
+exec_file = sys.argv[0]
 unit_file = f'/usr/local/lib/systemd/system/{COMMON_NAME}.service'
 help_text = f'''{COMMON_NAME}
 
 SSH proxy server.
-Version: 0.0
+Version: 0.1
 
 Usage:
-    {entry_file} -s [-c FILE]
-    {entry_file} -i [-c FILE]
-    {entry_file} -g [-c FILE]
-    {entry_file} -p [-c FILE]
+    {exec_file} -s [-c FILE]
+    {exec_file} -i [-c FILE]
+    {exec_file} -g [-c FILE]
+    {exec_file} -p [-c FILE]
 
 Options:
     -h, --help              Show this message.
@@ -49,10 +47,6 @@ Options:
                             (Not implemented yet.)
 '''
 _conf_file = None
-
-
-def usage():
-    print(help_text)
 
 
 def start_server():
@@ -105,7 +99,7 @@ After=network.target
 
 [Service]
 Environment=PYTHONUNBUFFERED=1
-ExecStart={sys.executable} {entry_file} -s{f' -c {_conf_file}' if _conf_file else ''}
+ExecStart={sys.executable} {exec_file} -s{f' -c {_conf_file}' if _conf_file else ''}
 ExecReload=/bin/kill -HUP $MAINPID
 
 [Install]
@@ -170,15 +164,15 @@ def main():
         # print('[D] command line args:', opts, args)
     except Exception as e:
         print('[E] Invalid arguments:', e, end='\n\n')
-        usage()
+        print(help_text)
         exit(1)
     if len(opts) == 0:
         print('[E] Arguments required.', end='\n\n')
-        usage()
+        print(help_text)
         exit(1)
     if len(args) > 0:
         print('[E] Invalid arguments:', args[0], end='\n\n')
-        usage()
+        print(help_text)
         exit(1)
 
     action = None
@@ -202,11 +196,12 @@ def main():
         elif opt[0] in ('-c', '--config-file'):
             _conf_file = opt[1]
         elif opt[0] in ('-h', '--help'):
-            action = usage
+            print(help_text)
+            exit()
 
     if not action:
         print('[E] Invalid arguments.', end='\n\n')
-        usage()
+        print(help_text)
         exit(1)
 
     Config.load(_conf_file)
